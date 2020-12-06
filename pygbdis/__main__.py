@@ -19,4 +19,4 @@ print('rom size', len(rom) // 1024, 'kb')
 if args.arch == 'gbc':
     from .gbc import GBC
     dis: Disassembler = GBC(rom)
-    dis.start(args.entrypoint)
+    dis.disassemble(args.entrypoint)

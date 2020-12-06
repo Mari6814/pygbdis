@@ -1,5 +1,6 @@
 from .disassembler import Disassembler
-from .context import PC, Context, Disassembly
+from .context import Context
+from .disassembly import Disassembly
 
 class GBC(Disassembler):
     def initialize_instructions(self):
@@ -86,8 +87,8 @@ class GBC(Disassembler):
         self.add_instruction(0x32, 'ldd (HL), A')
         self.add_instruction(0x2A, 'ldi A, (HL)')
         self.add_instruction(0x22, 'ldi (HL), A')
-        self.add_instruction(0xE0, lambda ctx: Disassembly('ld ($FF00+0x{n:x}), A', n=ctx.reference(ctx.pop8(), offset=0xFF00)))
-        self.add_instruction(0xF0, lambda ctx: Disassembly('ld A, ($FF00+0x{n:x}), A', n=ctx.reference(ctx.pop8(), offset=0xFF00)))
+        self.add_instruction(0xE0, lambda ctx: Disassembly('ld (0x{n:x}), A', n=ctx.reference(ctx.pop8(), offset=0xFF00)))
+        self.add_instruction(0xF0, lambda ctx: Disassembly('ld A, (0x{n:x}), A', n=ctx.reference(ctx.pop8(), offset=0xFF00)))
         self.add_instruction(0x01, lambda ctx: Disassembly('ld BC, 0x{nn:x}', nn=ctx.reference(ctx.pop16_ls_first())))
         self.add_instruction(0x11, lambda ctx: Disassembly('ld DE, 0x{nn:x}', nn=ctx.reference(ctx.pop16_ls_first())))
         self.add_instruction(0x21, lambda ctx: Disassembly('ld HL, 0x{nn:x}', nn=ctx.reference(ctx.pop16_ls_first())))
@@ -292,65 +293,56 @@ class GBC(Disassembler):
         self.add_instruction(bytes([0xCB, 0x3C]), 'srl H')
         self.add_instruction(bytes([0xCB, 0x3D]), 'srl L')
         self.add_instruction(bytes([0xCB, 0x3E]), 'srl (HL)')
+
+        # GENERATE bit, set and res instructions
         def get_bit(a, b):
-            a = int.from_bytes(a, byteorder='big')
-            b = int.from_bytes(b, byteorder='big')
             return ((a & 0b11) << 1) + ((b >> 3 & 0b1))
         def get_bit_reg(a, b):
-            b = int.from_bytes(b, byteorder='big')
             return (*'BCDEHL', '(HL)', 'A')[b & 0b111]
+
         self.add_instruction_range(
-            start=0xCB46,
-            end=0xCB7F,
-            bytecount=2,
+            start=0xCB40,
+            end=0xCB7F + 1,
             action=lambda ctx: Disassembly(
                 'bit {b}, {reg}',
                 b=get_bit(*ctx.opcode),
-                reg=get_reg(*ctx.opcode))))
-        self.add_instruction(bytes([0xCB, 0x47]), 'bit b,A')
-        self.add_instruction(bytes([0xCB, 0x40]), 'bit b,B')
-        self.add_instruction(bytes([0xCB, 0x41]), 'bit b,C')
-        self.add_instruction(bytes([0xCB, 0x42]), 'bit b,D')
-        self.add_instruction(bytes([0xCB, 0x43]), 'bit b,E')
-        self.add_instruction(bytes([0xCB, 0x44]), 'bit b,H')
-        self.add_instruction(bytes([0xCB, 0x45]), 'bit b,L')
-        self.add_instruction(bytes([0xCB, 0x46]), 'bit b,(HL)')
-        self.add_instruction(bytes([0xCB, 0xC7]), 'set b,A')
-        self.add_instruction(bytes([0xCB, 0xC0]), 'set b,B')
-        self.add_instruction(bytes([0xCB, 0xC1]), 'set b,C')
-        self.add_instruction(bytes([0xCB, 0xC2]), 'set b,D')
-        self.add_instruction(bytes([0xCB, 0xC3]), 'set b,E')
-        self.add_instruction(bytes([0xCB, 0xC4]), 'set b,H')
-        self.add_instruction(bytes([0xCB, 0xC5]), 'set b,L')
-        self.add_instruction(bytes([0xCB, 0xC6]), 'set b,(HL)')
-        self.add_instruction(bytes([0xCB, 0x87]), 'res b,A')
-        self.add_instruction(bytes([0xCB, 0x80]), 'res b,B')
-        self.add_instruction(bytes([0xCB, 0x81]), 'res b,C')
-        self.add_instruction(bytes([0xCB, 0x82]), 'res b,D')
-        self.add_instruction(bytes([0xCB, 0x83]), 'res b,E')
-        self.add_instruction(bytes([0xCB, 0x84]), 'res b,H')
-        self.add_instruction(bytes([0xCB, 0x85]), 'res b,L')
-        self.add_instruction(bytes([0xCB, 0x86]), 'res b,(HL)')
+                reg=get_bit_reg(*ctx.opcode)))
+
+        self.add_instruction_range(
+            start=0xCBC0,
+            end=0xCBFF + 1,
+            action=lambda ctx: Disassembly(
+                'set {b}, {reg}',
+                b=get_bit(*ctx.opcode),
+                reg=get_bit_reg(*ctx.opcode)))
+
+        self.add_instruction_range(
+            start=0xCB80,
+            end=0xCBBF + 1,
+            action=lambda ctx: Disassembly(
+                'res {b}, {reg}',
+                b=get_bit(*ctx.opcode),
+                reg=get_bit_reg(*ctx.opcode)))
         # 8 bit opcode!
         self.add_instruction(0xC3, lambda ctx: Disassembly('jp 0x{nn:x}', nn=ctx.jump(ctx.pop16_ls_first())))
-        self.add_instruction(0xC2, lambda ctx: Disassembly('jp NZ, 0x{nn:x}', nn=ctx.jump(ctx.pop16_ls_first())))
-        self.add_instruction(0xCA, lambda ctx: Disassembly('jp Z, 0x{nn:x}', nn=ctx.jump(ctx.pop16_ls_first())))
-        self.add_instruction(0xD2, lambda ctx: Disassembly('jp NC, 0x{nn:x}', nn=ctx.jump(ctx.pop16_ls_first())))
-        self.add_instruction(0xDA, lambda ctx: Disassembly('jp C, 0x{nn:x}', nn=ctx.jump(ctx.pop16_ls_first())))
+        self.add_instruction(0xC2, lambda ctx: Disassembly('jp NZ, 0x{nn:x}', nn=ctx.jump(ctx.pop16_ls_first(), conditional=True)))
+        self.add_instruction(0xCA, lambda ctx: Disassembly('jp Z, 0x{nn:x}', nn=ctx.jump(ctx.pop16_ls_first(), conditional=True)))
+        self.add_instruction(0xD2, lambda ctx: Disassembly('jp NC, 0x{nn:x}', nn=ctx.jump(ctx.pop16_ls_first(), conditional=True)))
+        self.add_instruction(0xDA, lambda ctx: Disassembly('jp C, 0x{nn:x}', nn=ctx.jump(ctx.pop16_ls_first(), conditional=True)))
         # THIS JUMP CANNOT BE DEDUCED!
-        self.add_instruction(0xE9, lambda ctx:  Disassembly(ctx.ret('jp (HL)')))
+        self.add_instruction(0xE9, lambda ctx: ctx.ret(Disassembly('jp (HL)')))
         # signed byte n
-        self.add_instruction(0x18, lambda ctx: Disassembly('jr 0x{n:x}', n=ctx.jump_rel(ctx.pop8_signed())))
+        self.add_instruction(0x18, lambda ctx: Disassembly('jr 0x{n:x}', n=ctx.jump(offset=ctx.pop8_signed())))
         # * is signed byte
-        self.add_instruction(0x20, lambda ctx: Disassembly('jr NZ, 0x{n:x}', n=ctx.jump_rel(ctx.pop8_signed())))
-        self.add_instruction(0x28, lambda ctx: Disassembly('jr Z, 0x{n:x}', n=ctx.jump_rel(ctx.pop8_signed())))
-        self.add_instruction(0x30, lambda ctx: Disassembly('jr NC, 0x{n:x}', n=ctx.jump_rel(ctx.pop8_signed())))
-        self.add_instruction(0x38, lambda ctx: Disassembly('jr C, 0x{n:x}', n=ctx.jump_rel(ctx.pop8_signed())))
+        self.add_instruction(0x20, lambda ctx: Disassembly('jr NZ, 0x{n:x}', n=ctx.jump(offset=ctx.pop8_signed(), conditional=True)))
+        self.add_instruction(0x28, lambda ctx: Disassembly('jr Z, 0x{n:x}', n=ctx.jump(offset=ctx.pop8_signed(), conditional=True)))
+        self.add_instruction(0x30, lambda ctx: Disassembly('jr NC, 0x{n:x}', n=ctx.jump(offset=ctx.pop8_signed(), conditional=True)))
+        self.add_instruction(0x38, lambda ctx: Disassembly('jr C, 0x{n:x}', n=ctx.jump(offset=ctx.pop8_signed(), conditional=True)))
         self.add_instruction(0xCD, lambda ctx: Disassembly('call 0x{n:x}', n=ctx.call(ctx.pop16_ls_first())))
-        self.add_instruction(0xC4, lambda ctx: Disassembly('call NZ, 0x{nn:x}', nn=ctx.call(ctx.pop16_ls_first())))
-        self.add_instruction(0xCC, lambda ctx: Disassembly('call Z, 0x{nn:x}', nn=ctx.call(ctx.pop16_ls_first())))
-        self.add_instruction(0xD4, lambda ctx: Disassembly('call NC, 0x{nn:x}', nn=ctx.call(ctx.pop16_ls_first())))
-        self.add_instruction(0xDC, lambda ctx: Disassembly('call C, 0x{nn:x}', nn=ctx.call(ctx.pop16_ls_first())))
+        self.add_instruction(0xC4, lambda ctx: Disassembly('call NZ, 0x{nn:x}', nn=ctx.call(ctx.pop16_ls_first(), conditional=True)))
+        self.add_instruction(0xCC, lambda ctx: Disassembly('call Z, 0x{nn:x}', nn=ctx.call(ctx.pop16_ls_first(), conditional=True)))
+        self.add_instruction(0xD4, lambda ctx: Disassembly('call NC, 0x{nn:x}', nn=ctx.call(ctx.pop16_ls_first(), conditional=True)))
+        self.add_instruction(0xDC, lambda ctx: Disassembly('call C, 0x{nn:x}', nn=ctx.call(ctx.pop16_ls_first(), conditional=True)))
         self.add_instruction(0xC7, lambda ctx: Disassembly('rst 0x{n:x}', n=ctx.jump(0x0)))
         self.add_instruction(0xCF, lambda ctx: Disassembly('rst 0x{n:x}', n=ctx.jump(0x8)))
         self.add_instruction(0xD7, lambda ctx: Disassembly('rst 0x{n:x}', n=ctx.jump(0x10)))
@@ -359,9 +351,9 @@ class GBC(Disassembler):
         self.add_instruction(0xEF, lambda ctx: Disassembly('rst 0x{n:x}', n=ctx.jump(0x28)))
         self.add_instruction(0xF7, lambda ctx: Disassembly('rst 0x{n:x}', n=ctx.jump(0x30)))
         self.add_instruction(0xFF, lambda ctx: Disassembly('rst 0x{n:x}', n=ctx.jump(0x38)))
-        self.add_instruction(0xC9, lambda ctx: Disassembly(ctx.ret('ret')))
-        self.add_instruction(0xC0, lambda ctx: Disassembly(ctx.ret('ret NZ')))
-        self.add_instruction(0xC8, lambda ctx: Disassembly(ctx.ret('ret Z')))
-        self.add_instruction(0xD0, lambda ctx: Disassembly(ctx.ret('ret NC')))
-        self.add_instruction(0xD8, lambda ctx: Disassembly(ctx.ret('ret C')))
-        self.add_instruction(0xD9, lambda ctx: Disassembly(ctx.ret('reti')))
+        self.add_instruction(0xC9, lambda ctx: ctx.ret(Disassembly('ret')))
+        self.add_instruction(0xC0, lambda ctx: ctx.ret(Disassembly('ret NZ')))
+        self.add_instruction(0xC8, lambda ctx: ctx.ret(Disassembly('ret Z')))
+        self.add_instruction(0xD0, lambda ctx: ctx.ret(Disassembly('ret NC')))
+        self.add_instruction(0xD8, lambda ctx: ctx.ret(Disassembly('ret C')))
+        self.add_instruction(0xD9, lambda ctx: ctx.ret(Disassembly('reti')))
