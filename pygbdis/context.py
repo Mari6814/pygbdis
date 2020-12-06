@@ -6,13 +6,13 @@ __all__ = ['PC', 'Context']
 
 
 class Context:
-    def __init__(self, pc: int, data: bytes):
+    def __init__(self, pc: int, rom: bytes):
         # current pc
         self.pc: int = pc
         # pc of the first byte
         self.pc0: int = pc
         # rom data
-        self.data: bytes = data
+        self.rom: bytes = rom
         # opcode buffer used by the instruction decoder
         self.opcode: bytes = b''
         # all bytes popped by this context
@@ -41,9 +41,9 @@ class Context:
 
     def pop8(self):
         ' Pop one byte and increase the program counter. '
-        if self.pc >= len(self.data):
-            raise ValueError(f'Program counter is at end of rom: {self.pc} of {len(self.data)}')
-        data = self.data[self.pc]
+        if self.pc >= len(self.rom):
+            raise ValueError(f'Program counter is at end of rom: {self.pc} of {len(self.rom)}')
+        data = self.rom[self.pc]
         self.bytes += bytes([data])
         self.pc += 1
         return data

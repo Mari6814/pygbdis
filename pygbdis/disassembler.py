@@ -2,6 +2,7 @@ from typing import Dict, Set, NewType, Callable, Union
 from io import StringIO
 from pathlib import Path
 from sys import stderr
+import itertools
 
 from .context import Context
 from .disassembly import Disassembly
@@ -11,8 +12,8 @@ DecodeAction = NewType('DecodeAction', Union[Callable[[Context], Disassembly], s
 MoreDecodeAction = object()
 
 class Disassembler:
-    def __init__(self, data: bytes):
-        self.data = data
+    def __init__(self, rom: bytes):
+        self.rom = rom
         self.pcs: Set[Address] = set()
         self.disassembly: Dict[Address, Disassembly] = dict()
         self._instruction_decoder: Dict[bytes, DecodeAction] = dict()
@@ -21,21 +22,20 @@ class Disassembler:
         self.labels: Dict[Address, str] = dict()
         self.references: Dict[Address, str] = dict()
 
-    def get_adr_name(self, adr: Address):
-        name = None
+    def format_label(self, adr: Address):
         if adr in self.functions:
-            name = self.functions.get(adr) or f'function{hex(adr)}'
+            return self.functions[adr] + ':\n\t'
         if adr in self.labels:
-            name = self.labels.get(adr) or f'.label{hex(adr)}'
-        if adr in self.references:
-            name = self.references.get(adr) or f'reference{hex(adr)}'
-        if name is None:
-            return '\t'
-        return f'\n{name}:\n\t'
+            return self.labels[adr] + ':\n\t'
+        return '\t'
 
-    def save(self, path_or_stream: Union[Path, StringIO], outformat: str = '{adr:08x}: ({bytes:>8}) {dis}\n'):
+    def save(self, path_or_stream: Union[Path, StringIO], format: str = '{label}{adr:08x}: ({bytes:>8}) {dis}\n'):
         ' Dump the disassembly into a single file. '
-        lines = (self.get_adr_name(adr) + outformat.format(adr=adr, bytes=dis.bytes.hex(), dis=dis.format(self.functions, self.labels, self.references)) for adr, dis in sorted(self.disassembly.items()))
+        lines = (
+            format.format(label=self.format_label(adr), adr=adr, bytes=dis.bytes.hex(), dis=dis)
+            for adr, dis
+            in sorted(self.disassembly.items())
+        )
         if isinstance(path_or_stream, Path):
             with open(path_or_stream, 'w') as fd:
                 fd.writelines(lines)
@@ -92,7 +92,7 @@ class Disassembler:
             if pc in self.disassembly:
                 continue
             # Create context
-            context: Context = Context(pc, self.data)
+            context: Context = Context(pc, self.rom)
             try:
                 while True:
                     # Accumulate opcode

@@ -14,21 +14,11 @@ class Disassembly:
         self.opcode: bytes = None
         self.bytes: bytes = None
 
-    def replace(self, *replacements):
-        return {
-            argname: next((
-                r[argval]
-                for r in replacements
-                if argval in r), argval)
-            for argname, argval in list(self.arguments.items())
-        }
-
-    def format(self, *replacements):
-        replacement_args = self.replace(*replacements)
+    def format(self):
         return self.human_readable.format(
             opcode=self.opcode,
             bytes=self.bytes,
-            **replacement_args,
+            **self.arguments,
         )
 
     def __repr__(self):
