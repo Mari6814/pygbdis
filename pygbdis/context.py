@@ -21,13 +21,13 @@ class Context:
         # if false, then a jump was made and the following bytes may not be executable
         self.continues: bool = True
         # set of all jumps that this instruction does
-        self.jumps: Set[PC] = set()
+        self.jumps: Set[int] = set()
         # set of functions that are jumped to
-        self.functions: Set[PC] = set()
+        self.functions: Dict[int, str] = dict()
         # set of labels that are jumped to 
-        self.labels: Set[PC] = set()
+        self.labels: Dict[int, str] = dict()
         # set of data referenced
-        self.references: Set[int] = set()
+        self.references: Dict[int, str] = dict()
 
     def done(self) -> Set[int]:
         ''' Call when done with this context.
@@ -82,7 +82,7 @@ class Context:
             The referenced address.
         '''
         abs += offset
-        self.references.add(abs)
+        self.references[abs] = None
         return abs
 
     def call(self, abs: int = None, offset: int = 0, conditional: bool = False):
@@ -100,7 +100,7 @@ class Context:
             abs = self.pc
         abs += offset
         self.jumps.add(abs)
-        self.functions.add(abs)
+        self.functions[abs] = None
         return abs
 
     def jump(self, abs: int = None, offset: int = 0, conditional: bool = False):
@@ -117,7 +117,7 @@ class Context:
             abs = self.pc
         abs += offset
         self.jumps.add(abs)
-        self.labels.add(abs)
+        self.labels[abs] = None
         if not conditional:
             self.continues = False
         return abs

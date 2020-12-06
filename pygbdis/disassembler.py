@@ -1,4 +1,6 @@
 from typing import Dict, Set, NewType, Callable, Union
+from io import StringIO
+from pathlib import Path
 from sys import stderr
 
 from .context import Context
@@ -15,9 +17,27 @@ class Disassembler:
         self.disassembly: Dict[Address, Disassembly] = dict()
         self._instruction_decoder: Dict[bytes, DecodeAction] = dict()
         self.initialize_instructions()
-        self.functions: Set[Address] = set()
-        self.labels: Set[Address] = set()
-        self.references: Set[Address] = set()
+        self.functions: Dict[Address, str] = dict()
+        self.labels: Dict[Address, str] = dict()
+        self.references: Dict[Address, str] = dict()
+
+    def get_adr_name(self, adr: Address):
+        if adr in self.functions:
+            return f'function{hex(adr)}:\n'
+        if adr in self.labels:
+            return f'.label{hex(adr)}:\n'
+        if adr in self.references:
+            return f'reference{hex(adr)}:\n'
+        return ''
+
+    def save(self, path_or_stream: Union[Path, StringIO], outformat: str = '{adr:08x}: ({bytes:>8}) {dis}\n'):
+        ' Dump the disassembly into a single file. '
+        lines = (self.get_adr_name(adr) + outformat.format(adr=adr, bytes=dis.bytes.hex(), dis=dis) for adr, dis in sorted(self.disassembly.items()))
+        if isinstance(path_or_stream, Path):
+            with open(path_or_stream, 'w') as fd:
+                fd.writelines(lines)
+        else:
+            path_or_stream.writelines(lines)
 
     def initialize_instructions(self):
         ' This should be overwritten by the user to initialize all actions. '
@@ -63,6 +83,7 @@ class Disassembler:
     def disassemble(self, pc: Address):
         ' Starts the decoding at the given initial program counter. '
         self.pcs.add(pc)
+        self.functions[pc] = 'Main'
         while self.pcs:
             pc = self.pcs.pop()
             if pc in self.disassembly:
