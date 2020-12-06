@@ -17,6 +17,7 @@ parser.add_argument('--entrypoint', '-e', default=AUTO_ENTRYPOINT, type=entrypoi
 parser.add_argument('--arch', default='gbc', choices=['gbc'])
 parser.add_argument('--gbc', action='store_const', const='gbc', dest='arch')
 parser.add_argument('--output', '-o', default='out', type=Path, help="Path to directory in which the result will be stored.")
+parser.add_argument('--format', '-f', default='{dis}\n')
 
 args = parser.parse_args()
 
@@ -33,4 +34,4 @@ if args.arch == 'gbc':
     dis.disassemble(args.entrypoint)
     os.makedirs(args.output, exist_ok=True)
     with open((args.output / args.input.name).with_suffix('.asm'), 'w') as fd:
-        dis.save(fd)
+        dis.save(fd, outformat=args.format)

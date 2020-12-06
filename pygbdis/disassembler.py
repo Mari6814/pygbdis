@@ -22,17 +22,20 @@ class Disassembler:
         self.references: Dict[Address, str] = dict()
 
     def get_adr_name(self, adr: Address):
+        name = None
         if adr in self.functions:
-            return f'function{hex(adr)}:\n'
+            name = self.functions.get(adr) or f'function{hex(adr)}'
         if adr in self.labels:
-            return f'.label{hex(adr)}:\n'
+            name = self.labels.get(adr) or f'.label{hex(adr)}'
         if adr in self.references:
-            return f'reference{hex(adr)}:\n'
-        return ''
+            name = self.references.get(adr) or f'reference{hex(adr)}'
+        if name is None:
+            return '\t'
+        return f'\n{name}:\n\t'
 
     def save(self, path_or_stream: Union[Path, StringIO], outformat: str = '{adr:08x}: ({bytes:>8}) {dis}\n'):
         ' Dump the disassembly into a single file. '
-        lines = (self.get_adr_name(adr) + outformat.format(adr=adr, bytes=dis.bytes.hex(), dis=dis) for adr, dis in sorted(self.disassembly.items()))
+        lines = (self.get_adr_name(adr) + outformat.format(adr=adr, bytes=dis.bytes.hex(), dis=dis.format(self.functions, self.labels, self.references)) for adr, dis in sorted(self.disassembly.items()))
         if isinstance(path_or_stream, Path):
             with open(path_or_stream, 'w') as fd:
                 fd.writelines(lines)

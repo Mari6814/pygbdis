@@ -82,7 +82,7 @@ class Context:
             The referenced address.
         '''
         abs += offset
-        self.references[abs] = None
+        self.references[abs] = f'reference_{hex(abs)}'
         return abs
 
     def call(self, abs: int = None, offset: int = 0, conditional: bool = False):
@@ -100,7 +100,7 @@ class Context:
             abs = self.pc
         abs += offset
         self.jumps.add(abs)
-        self.functions[abs] = None
+        self.functions[abs] = f'function_{hex(abs)}'
         return abs
 
     def jump(self, abs: int = None, offset: int = 0, conditional: bool = False):
@@ -117,7 +117,7 @@ class Context:
             abs = self.pc
         abs += offset
         self.jumps.add(abs)
-        self.labels[abs] = None
+        self.labels[abs] = f'label_{hex(abs)}'
         if not conditional:
             self.continues = False
         return abs
