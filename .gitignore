@@ -1,0 +1,13 @@
+.vscode/
+*.pyc
+__pycache__/
+venv/
+*.png
+*.sav
+*.hex
+*.bin
+*.gb
+*.gbc
+*.gba
+*.asm
+
