@@ -17,12 +17,11 @@ parser.add_argument('--entrypoint', '-e', default=AUTO_ENTRYPOINT, type=entrypoi
 parser.add_argument('--arch', default='gbc', choices=['gbc'])
 parser.add_argument('--gbc', action='store_const', const='gbc', dest='arch')
 parser.add_argument('--output', '-o', default='out', type=Path, help="Path to directory in which the result will be stored.")
-parser.add_argument('--format', '-f', default='{label}0x{adr:4x}: {dis}\n')
+parser.add_argument('--format', '-f', default=None)
 
 args = parser.parse_args()
 
-with open(args.input, 'rb') as fd:
-    rom = fd.read()
+rom = args.input.read_bytes()
 
 print('rom size', len(rom) // 1024, 'kb')
 
@@ -33,5 +32,9 @@ if args.arch == 'gbc':
     dis: Disassembler = GBC(rom)
     dis.disassemble(args.entrypoint)
     os.makedirs(args.output, exist_ok=True)
-    with open((args.output / args.input.name).with_suffix('.asm'), 'w') as fd:
-        dis.save(fd, format=args.format)
+    outfile = (args.output / args.input.name).with_suffix('.asm')
+    with open(outfile, 'w') as fd:
+        if args.format:
+            dis.save(fd, format_string=args.format)
+        else:
+            dis.save(fd)
